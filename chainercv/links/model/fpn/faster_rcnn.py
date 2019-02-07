@@ -7,6 +7,8 @@ from chainer.backends import cuda
 
 from chainercv import transforms
 
+import onnx_chainer
+
 
 class FasterRCNN(chainer.Chain):
     """Base class of Feature Pyramid Networks.
@@ -89,7 +91,8 @@ class FasterRCNN(chainer.Chain):
             rpn_locs, rpn_confs, anchors, x.shape)
         rois, roi_indices = self.head.distribute(rois, roi_indices)
         head_locs, head_confs = self.head(hs, rois, roi_indices)
-        return rois, roi_indices, head_locs, head_confs
+        print(rois, roi_indices, head_locs, head_confs)
+        return head_locs, head_confs
 
     def predict(self, imgs):
         """Detect objects from images.
@@ -133,6 +136,11 @@ class FasterRCNN(chainer.Chain):
         labels = [cuda.to_cpu(label) for label in labels]
         scores = [cuda.to_cpu(score) for score in scores]
         return bboxes, labels, scores
+
+    def export(self, imgs, name):
+        sizes = [img.shape[1:] for img in imgs]
+        x, scales = self.prepare(imgs)
+        onnx_chainer.export(self, [x], name)
 
     def prepare(self, imgs):
         """Preprocess images.

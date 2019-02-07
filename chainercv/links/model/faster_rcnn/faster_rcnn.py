@@ -29,6 +29,8 @@ from chainercv.utils import non_maximum_suppression
 
 from chainercv.transforms.image.resize import resize
 
+import onnx_chainer
+
 
 class FasterRCNN(chainer.Chain):
 
@@ -319,3 +321,23 @@ class FasterRCNN(chainer.Chain):
             scores.append(prob)
 
         return bboxes, labels, scores
+
+    def export(self, imgs, name):
+        prepared_imgs = []
+        sizes = []
+        for img in imgs:
+            size = img.shape[1:]
+            img = self.prepare(img.astype(np.float32))
+            prepared_imgs.append(img)
+            sizes.append(size)
+
+        bboxes = []
+        labels = []
+        scores = []
+        for img, size in zip(prepared_imgs, sizes):
+            with chainer.using_config('train', False), \
+                    chainer.function.no_backprop_mode():
+                img_var = chainer.Variable(self.xp.asarray(img[None]))
+                scale = img_var.shape[3] / size[1]
+                onnx_chainer.export(self, [img_var, scale], name)
+            return

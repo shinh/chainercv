@@ -18,7 +18,6 @@ class FasterRCNNFPNResNet(FasterRCNN):
 
     A subclass of this class should have :obj:`_base` and :obj:`_models`.
     """
-
     def __init__(self, n_fg_class=None, pretrained_model=None):
         param, path = utils.prepare_pretrained_model(
             {'n_fg_class': n_fg_class}, pretrained_model, self._models)
@@ -76,7 +75,6 @@ class FasterRCNNFPNResNet50(FasterRCNNFPNResNet):
             * :obj:`None`: Do not load weights.
 
     """
-
     _base = ResNet50
     _models = {
         'coco': {

@@ -35,6 +35,9 @@ def main():
         model.to_gpu()
 
     img = utils.read_image(args.image)
+    model.export([img], args.model + '.onnx')
+    #onnx_chainer.export(model, [img], args.model + '.onnx')
+    return
     bboxes, labels, scores = model.predict([img])
     bbox = bboxes[0]
     label = labels[0]
