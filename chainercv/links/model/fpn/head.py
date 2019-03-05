@@ -67,8 +67,8 @@ class Head(chainer.Chain):
 
         hs_ = []
         for l, h in enumerate(hs):
-            if len(rois[l]) == 0:
-                continue
+            #if len(rois[l]) == 0:
+            #    continue
             h = F.roi_average_align_2d(
                 h, rois[l], roi_indices[l], self._roi_size,
                 self._scales[l], self._roi_sample_ratio)

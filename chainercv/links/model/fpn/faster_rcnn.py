@@ -1,5 +1,7 @@
 from __future__ import division
 
+import time
+
 import numpy as np
 
 import chainer
@@ -52,6 +54,8 @@ class FasterRCNN(chainer.Chain):
             self.head = head
 
         self.use_preset('visualize')
+        self.xcvm1 = None
+        self.xcvm2 = None
 
     def use_preset(self, preset):
         """Use the given preset during prediction.
@@ -80,16 +84,138 @@ class FasterRCNN(chainer.Chain):
         else:
             raise ValueError('preset must be visualize or evaluate')
 
-    def __call__(self, x):
-        assert(not chainer.config.train)
-        hs = self.extractor(x)
-        rpn_locs, rpn_confs = self.rpn(hs)
-        anchors = self.rpn.anchors(h.shape[2:] for h in hs)
+    def __call__(self, *args):
+        if not hasattr(self, '_export_step'):
+            return self.call_orig(*args)
+        if self._export_step == 0:
+            return self.step0(*args)
+        if self._export_step == 1:
+            return self.step1(*args)
+        if self._export_step == 2:
+            return self.step2(*args)
+        assert False
+
+    def call_orig(self, x):
+        hs, rpn_locs, rpn_confs, anchors = self.step0(x)
+
+        st = time.time()
         rois, roi_indices = self.rpn.decode(
             rpn_locs, rpn_confs, anchors, x.shape)
+        elapsed = (time.time() - st) * 1000
+        print('Elapsed (rpn.decode): %s msec' % elapsed)
+
+        # print('uuu', type(rois[0]), type(roi_indices[0]))
+        st = time.time()
         rois, roi_indices = self.head.distribute(rois, roi_indices)
-        head_locs, head_confs = self.head(hs, rois, roi_indices)
+        elapsed = (time.time() - st) * 1000
+        print('Elapsed (head.distribute): %s msec' % elapsed)
+
+        #head_locs, head_confs = self.head(hs, rois, roi_indices)
+        #args = hs + rois + roi_indices
+        args = [h.array for h in hs] + rois + roi_indices
+        head_locs, head_confs = self.step2(*args)
+
+        print(type(rois), type(roi_indices), type(head_locs), type(head_confs))
+        print(len(rois), len(roi_indices), type(head_locs), type(head_confs))
+        print(type(rois[0]), type(roi_indices[0]))
         return rois, roi_indices, head_locs, head_confs
+        #return head_locs, head_confs
+        #return tuple(rois) + tuple(roi_indices) + (head_locs, head_confs)
+
+    def step0(self, x):
+        assert(not chainer.config.train)
+        if self.xcvm1 is None:
+            hs = self.extractor(x)
+            rpn_locs, rpn_confs = self.rpn(hs)
+        else:
+            import chainerx as chx
+            x = chx.array(x, copy=False)
+            x = self.ccc.value(x)
+            self.inputs1['Input_0'] = x
+            kwargs = {}
+            if self.trace:
+                kwargs = {'trace': True, 'chrome_tracing': 'step1.json'}
+            results = self.xcvm1.run(self.inputs1, **kwargs)
+            results = [
+                results[k] for k
+                in ('Identity_4', 'Identity_3', 'Identity_2', 'Identity_0', 'Identity_1',
+                    'Reshape_9', 'Reshape_7', 'Reshape_5', 'Reshape_1', 'Reshape_3',
+                    'Reshape_8', 'Reshape_6', 'Reshape_4', 'Reshape_0', 'Reshape_2',
+                )]
+            assert len(results) % 3 == 0
+            results = [chainer.Variable(chx.to_numpy(r.array(), copy=False))
+                       for r in results]
+            l = len(results) // 3
+            hs = results[:l]
+            rpn_locs = results[l:l*2]
+            rpn_confs = results[l*2:]
+        print('uuu', type(rpn_locs), type(rpn_confs))
+        st = time.time()
+        anchors = self.rpn.anchors(h.shape[2:] for h in hs)
+        elapsed = (time.time() - st) * 1000
+        print('Elapsed (rpn.anchor): %s msec' % elapsed)
+        return hs, rpn_locs, rpn_confs, anchors
+
+    def step1(self, x):
+        hs, rpn_locs, rpn_confs, anchors = self.step0(x)
+        return tuple(hs) + tuple(rpn_locs) + tuple(rpn_confs)
+
+    def step2(self, *args):
+        assert len(args) % 3 == 0
+        l = len(args) // 3
+        #hs = [h.array for h in args[:l]]
+        hs = args[:l]
+        rois = args[l:l*2]
+        roi_indices = args[l*2:]
+        assert len(rois) == len(roi_indices)
+        # print('uuu', len(hs), type(rois[0]), type(roi_indices[0]))
+
+        if self.xcvm2 is None:
+            head_locs, head_confs = self.head(hs, rois, roi_indices)
+        else:
+            import chainerx as chx
+            for i in range(len(hs)):
+                h = self.ccc.value(chx.array(hs[i], copy=False))
+                roi = self.ccc.value(chx.array(rois[i], copy=False))
+                roii= self.ccc.value(chx.array(roi_indices[i], copy=False))
+                j = (len(hs) - 1 - i) * 3
+                self.inputs2['Input_%d' % (j + 0)] = h
+                self.inputs2['Input_%d' % (j + 1)] = roi
+                self.inputs2['Input_%d' % (j + 2)] = roii
+
+            kwargs = {}
+            if self.trace:
+                kwargs = {'trace': True, 'chrome_tracing': 'step2.json'}
+            results = self.xcvm2.run(self.inputs2, **kwargs)
+            results = [results[k] for k in ('Reshape_1', 'Gemm_3')]
+            results = [chainer.Variable(chx.to_numpy(r.array(), copy=False))
+                       for r in results]
+            head_locs, head_confs = results
+
+        # print(type(rois), type(roi_indices), type(head_locs), type(head_confs))
+        # print(len(rois), len(roi_indices), type(head_locs), type(head_confs))
+        # print(type(rois[0]), type(roi_indices[0]))
+        # print('wwwww', type(head_locs), type(head_confs))
+        return head_locs, head_confs
+
+    def set_trace(self, t):
+        self.trace = t
+
+    def use_chainer_compiler(self):
+        import chainer_compiler_core
+        g1 = chainer_compiler_core.load('1_faster_rcnn_fpn_resnet50.onnx')
+        g2 = chainer_compiler_core.load('2_faster_rcnn_fpn_resnet50.onnx')
+        self.ccc = chainer_compiler_core
+        self.inputs1 = dict(g1.params())
+        self.inputs2 = dict(g2.params())
+        self.xcvm1 = g1.compile(use_ngraph=True,
+                                fuse_operations=True,
+                                compiler_log=True,
+                                dump_after_scheduling=True)
+        self.xcvm2 = g2.compile(use_ngraph=True,
+                                fuse_operations=True,
+                                compiler_log=True,
+                                dump_after_scheduling=True)
 
     def predict(self, imgs):
         """Detect objects from images.
@@ -119,20 +245,56 @@ class FasterRCNN(chainer.Chain):
                Each value indicates how confident the prediction is.
 
         """
+        if hasattr(self, '_export_step'):
+            del self._export_step
 
         sizes = [img.shape[1:] for img in imgs]
         x, scales = self.prepare(imgs)
 
         with chainer.using_config('train', False), chainer.no_backprop_mode():
             rois, roi_indices, head_locs, head_confs = self(x)
+
+        st = time.time()
         bboxes, labels, scores = self.head.decode(
             rois, roi_indices, head_locs, head_confs,
             scales, sizes, self.nms_thresh, self.score_thresh)
+        elapsed = (time.time() - st) * 1000
+        print('Elapsed (head.decode): %s msec' % elapsed)
 
         bboxes = [cuda.to_cpu(bbox) for bbox in bboxes]
         labels = [cuda.to_cpu(label) for label in labels]
         scores = [cuda.to_cpu(score) for score in scores]
         return bboxes, labels, scores
+
+    def export(self, imgs, name, **kwargs):
+        import onnx_chainer
+
+        chainer.config.train = False
+        sizes = [img.shape[1:] for img in imgs]
+        x, scales = self.prepare(imgs)
+        print('www', type(x))
+
+        self._export_step = 0
+        hs, rpn_locs, rpn_confs, anchors = self(x)
+        rois, roi_indices = self.rpn.decode(
+            rpn_locs, rpn_confs, anchors, x.shape)
+        rois, roi_indices = self.head.distribute(rois, roi_indices)
+
+        self._export_step = 1
+        onnx_chainer.export(self, [x], '1_' + name, **kwargs)
+
+        self._export_step = 2
+        print('hs', type(hs[0]))
+        print('rois', type(rois[0]))
+        print('roi_indices', type(roi_indices[0]))
+        args = [h.array for h in hs] + rois + roi_indices
+        onnx_chainer.export(self, args, '2_' + name, **kwargs)
+
+    def run(self, imgs):
+        sizes = [img.shape[1:] for img in imgs]
+        x, scales = self.prepare(imgs)
+        print('www', type(x))
+        self(x)
 
     def prepare(self, imgs):
         """Preprocess images.
