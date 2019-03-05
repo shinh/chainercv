@@ -18,6 +18,7 @@ def main():
         default='yolo_v2')
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--pretrained-model', default='voc0712')
+    parser.add_argument('--export', action='store_true')
     parser.add_argument('image')
     args = parser.parse_args()
 
@@ -39,6 +40,13 @@ def main():
         model.to_gpu()
 
     img = utils.read_image(args.image, color=True)
+
+    if args.export:
+        import onnx_chainer
+        x = model.xp.stack([img])
+        onnx_chainer.export_testcase(model, x, args.model)
+        return
+
     bboxes, labels, scores = model.predict([img])
     bbox, label, score = bboxes[0], labels[0], scores[0]
 
