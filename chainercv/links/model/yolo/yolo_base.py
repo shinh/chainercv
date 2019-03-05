@@ -84,7 +84,10 @@ class YOLOBase(chainer.Chain):
 
         with chainer.using_config('train', False), \
                 chainer.function.no_backprop_mode():
-            locs, objs, confs = self(self.xp.stack(x))
+            if hasattr(self, 'run_model'):
+                locs, objs, confs = self.run_model(self, self.xp.stack(x))
+            else:
+                locs, objs, confs = self(self.xp.stack(x))
         locs = locs.array
         objs = objs.array
         confs = confs.array

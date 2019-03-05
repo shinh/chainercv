@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--pretrained-model', default='voc0712')
     parser.add_argument('--export', action='store_true')
+    parser.add_argument('--chainer_compiler', action='store_true')
     parser.add_argument('image')
     args = parser.parse_args()
 
@@ -46,6 +47,35 @@ def main():
         x = model.xp.stack([img])
         onnx_chainer.export_testcase(model, x, args.model)
         return
+
+    if args.chainer_compiler:
+        import chainerx as chx
+        import chainer_compiler_core as ccc
+
+        g = ccc.load('%s/model.onnx' % args.model)
+        input_names = g.input_names()
+        output_names = g.output_names()
+        inputs = g.params()
+        xcvm = g.compile(use_ngraph=True,
+                         fuse_operations=True,
+                         compiler_log=True,
+                         dump_after_scheduling=True)
+
+        def run(self, *xs):
+            kwargs = {}
+            if self.trace:
+                kwargs = {'trace': True,
+                          'chrome_tracing': '%s.json' % args.model}
+            assert len(xs) == len(input_names)
+            for n, x in zip(input_names, xs):
+                inputs[n] = ccc.value(chx.array(x, copy=False))
+            outputs = xcvm.run(inputs, **kwargs)
+            outputs = [outputs[name].array() for name in output_names]
+            outputs = [chainer.Variable(chx.to_numpy(o)) for o in outputs]
+            return tuple(outputs)
+
+        model.run_model = run
+        model.trace = True
 
     bboxes, labels, scores = model.predict([img])
     bbox, label, score = bboxes[0], labels[0], scores[0]
