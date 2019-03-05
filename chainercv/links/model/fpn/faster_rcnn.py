@@ -113,7 +113,8 @@ class FasterRCNN(chainer.Chain):
         print('Elapsed (head.distribute): %s msec' % elapsed)
 
         #head_locs, head_confs = self.head(hs, rois, roi_indices)
-        args = hs + rois + roi_indices
+        #args = hs + rois + roi_indices
+        args = [h.array for h in hs] + rois + roi_indices
         head_locs, head_confs = self.step2(*args)
 
         print(type(rois), type(roi_indices), type(head_locs), type(head_confs))
@@ -164,7 +165,8 @@ class FasterRCNN(chainer.Chain):
     def step2(self, *args):
         assert len(args) % 3 == 0
         l = len(args) // 3
-        hs = [h.array for h in args[:l]]
+        #hs = [h.array for h in args[:l]]
+        hs = args[:l]
         rois = args[l:l*2]
         roi_indices = args[l*2:]
         assert len(rois) == len(roi_indices)
@@ -282,10 +284,11 @@ class FasterRCNN(chainer.Chain):
         onnx_chainer.export(self, [x], '1_' + name, **kwargs)
 
         self._export_step = 2
+        print('hs', type(hs[0]))
         print('rois', type(rois[0]))
         print('roi_indices', type(roi_indices[0]))
-        onnx_chainer.export(self, hs + rois + roi_indices,
-                            '2_' + name, **kwargs)
+        args = [h.array for h in hs] + rois + roi_indices
+        onnx_chainer.export(self, args, '2_' + name, **kwargs)
 
     def run(self, imgs):
         sizes = [img.shape[1:] for img in imgs]
