@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--pretrained-model', default='voc0712')
     parser.add_argument('--export', action='store_true')
-    parser.add_argument('--chainer_compiler', action='store_true')
+    parser.add_argument('--chainer-compiler', action='store_true')
     parser.add_argument('image')
     args = parser.parse_args()
 
