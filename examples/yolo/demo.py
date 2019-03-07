@@ -1,6 +1,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import sys
+import time
 
 import chainer
 
@@ -21,6 +22,7 @@ def main():
     parser.add_argument('--pretrained-model', default='voc0712')
     parser.add_argument('--export', action='store_true')
     parser.add_argument('--chainer-compiler', action='store_true')
+    parser.add_argument('--iterations', '-I', type=int, default=1)
     parser.add_argument('image')
     args = parser.parse_args()
 
@@ -84,9 +86,18 @@ def main():
     bboxes, labels, scores = model.predict([img])
     bbox, label, score = bboxes[0], labels[0], scores[0]
 
-    vis_bbox(
-        img, bbox, label, score, label_names=voc_bbox_label_names)
-    plt.show()
+    if args.iterations > 1:
+        model.trace = False
+        ni = args.iterations - 1
+        st = time.time()
+        for i in range(ni):
+            model.predict([img])
+        elapsed = (time.time() - st) * 1000 / ni
+        print('Elapsed: %s msec' % elapsed)
+    else:
+        vis_bbox(
+            img, bbox, label, score, label_names=voc_bbox_label_names)
+        plt.show()
 
 
 if __name__ == '__main__':
