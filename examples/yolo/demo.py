@@ -1,5 +1,6 @@
 import argparse
 import matplotlib.pyplot as plt
+import sys
 
 import chainer
 
@@ -44,9 +45,12 @@ def main():
 
     if args.export:
         import onnx_chainer
-        x = model.xp.stack([img])
-        onnx_chainer.export_testcase(model, x, args.model)
-        return
+
+        def export(self, *xs):
+            onnx_chainer.export_testcase(model, xs, args.model)
+            sys.exit()
+
+        model.run_model = export
 
     if args.chainer_compiler:
         import chainerx as chx
