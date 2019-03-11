@@ -69,6 +69,8 @@ def main():
                           'chrome_tracing': '%s.json' % args.model}
             assert len(xs) == len(input_names)
             for n, x in zip(input_names, xs):
+                if isinstance(x, chainer.Variable):
+                    x = x.array
                 inputs[n] = ccc.value(chx.array(x, copy=False))
             outputs = xcvm.run(inputs, **kwargs)
             outputs = [outputs[name].array() for name in output_names]
