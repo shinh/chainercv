@@ -136,6 +136,8 @@ class DeepLabV3plus(chainer.Chain):
         lowlevel, highlevel = self.feature_extractor(x)
         highlevel = self.aspp(highlevel)
         h = self.decoder(lowlevel, highlevel)
+        if hasattr(self, 'run_model'):
+            h = F.softmax(h, axis=1)
         return h
 
     def _get_proba(self, img, scale, flip):
@@ -152,8 +154,11 @@ class DeepLabV3plus(chainer.Chain):
         img = self.prepare(img)
 
         x = chainer.Variable(self.xp.asarray(img[np.newaxis]))
-        x = self.__call__(x)
-        x = F.softmax(x, axis=1)
+        if hasattr(self, 'run_model'):
+            x = self.run_model(self, x)
+        else:
+            x = self.__call__(x)
+            x = F.softmax(x, axis=1)
         score = F.resize_images(x, img.shape[1:])[0, :, :h, :w].array
         score = chainer.backends.cuda.to_cpu(score)
 
