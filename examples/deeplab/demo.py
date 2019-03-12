@@ -35,11 +35,23 @@ def main():
 
     img = utils.read_image(args.image, color=True)
 
+    MODEL_NAME = 'deeplab_v3'
+
     if args.export:
         import onnx_chainer
+        from onnx_chainer import onnx_helper
+
+        def convert_resize_images(params):
+            output_shape = (params.func.out_H, params.func.out_W)
+            return onnx_helper.make_node('ChainerResizeImages',
+                                         params.input_names,
+                                         len(params.output_names),
+                                         output_shape=output_shape),
 
         def export(self, *xs):
-            onnx_chainer.export_testcase(model, xs, 'deeplab_v3')
+            onnx_chainer.export_testcase(
+                model, xs, MODEL_NAME,
+                external_converters={'ResizeImages': convert_resize_images})
             sys.exit()
 
         model.run_model = export
@@ -48,7 +60,7 @@ def main():
         import chainerx as chx
         import chainer_compiler_core as ccc
 
-        g = ccc.load('%s/model.onnx' % args.model)
+        g = ccc.load('%s/model.onnx' % MODEL_NAME)
         input_names = g.input_names()
         output_names = g.output_names()
         inputs = g.params()
