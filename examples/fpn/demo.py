@@ -66,7 +66,7 @@ def main():
     if args.export:
         #model.export([img], args.model + '.onnx',
         #             experimental_onnx_chainer2=True)
-        model.export([img], args.model + '.onnx')
+        model.export([img], args.model)
         #onnx_chainer.export(model, [img], args.model + '.onnx')
 
     bboxes, labels, scores = model.predict([img])

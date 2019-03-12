@@ -203,8 +203,8 @@ class FasterRCNN(chainer.Chain):
 
     def use_chainer_compiler(self):
         import chainer_compiler_core
-        g1 = chainer_compiler_core.load('1_faster_rcnn_fpn_resnet50.onnx')
-        g2 = chainer_compiler_core.load('2_faster_rcnn_fpn_resnet50.onnx')
+        g1 = chainer_compiler_core.load('1_faster_rcnn_fpn_resnet50/model.onnx')
+        g2 = chainer_compiler_core.load('2_faster_rcnn_fpn_resnet50/model.onnx')
         self.ccc = chainer_compiler_core
         self.inputs1 = dict(g1.params())
         self.inputs2 = dict(g2.params())
@@ -268,6 +268,18 @@ class FasterRCNN(chainer.Chain):
 
     def export(self, imgs, name, **kwargs):
         import onnx_chainer
+        from onnx_chainer import onnx_helper
+
+        def convert_roi_average_align_2d(params):
+            output_shape = (params.func.outh, params.func.outw)
+            return onnx_helper.make_node(
+                'ChainerROIAverageAlign2D',
+                params.input_names,
+                len(params.output_names),
+                output_shape=output_shape,
+                spatial_scale=params.func.spatial_scale,
+                sampling_ratio=params.func.sampling_ratio
+            ),
 
         chainer.config.train = False
         sizes = [img.shape[1:] for img in imgs]
@@ -281,14 +293,17 @@ class FasterRCNN(chainer.Chain):
         rois, roi_indices = self.head.distribute(rois, roi_indices)
 
         self._export_step = 1
-        onnx_chainer.export(self, [x], '1_' + name, **kwargs)
+        onnx_chainer.export_testcase(self, [x], '1_' + name, **kwargs)
 
         self._export_step = 2
         print('hs', type(hs[0]))
         print('rois', type(rois[0]))
         print('roi_indices', type(roi_indices[0]))
         args = [h.array for h in hs] + rois + roi_indices
-        onnx_chainer.export(self, args, '2_' + name, **kwargs)
+        onnx_chainer.export_testcase(
+            self, args, '2_' + name,
+            external_converters={'ROIAverageAlign2D': convert_roi_average_align_2d},
+            **kwargs)
 
     def run(self, imgs):
         sizes = [img.shape[1:] for img in imgs]
