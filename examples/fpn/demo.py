@@ -22,7 +22,7 @@ def main():
     parser.add_argument('--pretrained-model', default='coco')
     parser.add_argument('--small', action='store_true')
     parser.add_argument('--export', action='store_true')
-    parser.add_argument('--use_chainer_compiler', action='store_true')
+    parser.add_argument('--chainer-compiler', action='store_true')
     parser.add_argument('--show', action='store_true')
     parser.add_argument('--iterations', '-I', type=int, default=1)
     parser.add_argument('--trace', action='store_true')
@@ -50,7 +50,7 @@ def main():
 
     model.set_trace(args.trace)
 
-    if args.use_chainer_compiler:
+    if args.chainer_compiler:
         model.use_chainer_compiler()
 
     if args.gpu >= 0:
