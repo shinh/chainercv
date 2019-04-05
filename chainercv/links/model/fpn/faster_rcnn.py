@@ -212,8 +212,7 @@ class FasterRCNN(chainer.Chain):
                                 fuse_operations=True,
                                 compiler_log=True,
                                 dump_after_scheduling=True)
-        self.xcvm2 = g2.compile(use_ngraph=True,
-                                fuse_operations=True,
+        self.xcvm2 = g2.compile(reset_shape=True,
                                 compiler_log=True,
                                 dump_after_scheduling=True)
 
