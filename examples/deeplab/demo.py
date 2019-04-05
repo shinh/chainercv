@@ -35,7 +35,7 @@ def main():
 
     img = utils.read_image(args.image, color=True)
 
-    MODEL_NAME = 'deeplab_v3'
+    MODEL_NAME = 'deeplab_v3_%s' % args.pretrained_model
 
     if args.export:
         import onnx_chainer
