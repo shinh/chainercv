@@ -26,6 +26,7 @@ from chainercv.links.model.resnet import Bottleneck
 from chainercv.links import ResNet101
 from chainercv.links import ResNet152
 from chainercv.links import ResNet50
+from chainercv.links import ShuffleNetV2
 
 import chainermn
 
@@ -71,7 +72,19 @@ def main():
         'resnet101': {'class': ResNet101, 'score_layer_name': 'fc6',
                       'kwargs': {'arch': 'fb'}},
         'resnet152': {'class': ResNet152, 'score_layer_name': 'fc6',
-                      'kwargs': {'arch': 'fb'}}
+                      'kwargs': {'arch': 'fb'}},
+        'shufflenet_v2_x0.5': {'class': ShuffleNetV2,
+                               'score_layer_name': 'fc6',
+                               'kwargs': {'scale_factor': 0.5}},
+        'shufflenet_v2_x1.0': {'class': ShuffleNetV2,
+                               'score_layer_name': 'fc6',
+                               'kwargs': {'scale_factor': 1.0}},
+        'shufflenet_v2_x1.5': {'class': ShuffleNetV2,
+                               'score_layer_name': 'fc6',
+                               'kwargs': {'scale_factor': 1.5}},
+        'shufflenet_v2_x2.0': {'class': ShuffleNetV2,
+                               'score_layer_name': 'fc6',
+                               'kwargs': {'scale_factor': 2.0}},
     }
     parser = argparse.ArgumentParser(
         description='Learning convnet from ILSVRC2012 dataset')
