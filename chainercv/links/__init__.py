@@ -22,6 +22,7 @@ from chainercv.links.model.senet import SEResNet152  # NOQA
 from chainercv.links.model.senet import SEResNet50  # NOQA
 from chainercv.links.model.senet import SEResNeXt101  # NOQA
 from chainercv.links.model.senet import SEResNeXt50  # NOQA
+from chainercv.links.model.shufflenet import ShuffleNetV2  # NOQA
 from chainercv.links.model.ssd import SSD300  # NOQA
 from chainercv.links.model.ssd import SSD512  # NOQA
 from chainercv.links.model.vgg import VGG16  # NOQA
