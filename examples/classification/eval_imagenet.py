@@ -17,6 +17,7 @@ from chainercv.links import SEResNet152
 from chainercv.links import SEResNet50
 from chainercv.links import SEResNeXt101
 from chainercv.links import SEResNeXt50
+from chainercv.links import ShuffleNetV2
 from chainercv.links import VGG16
 
 from chainercv.utils import apply_to_iterator
@@ -32,7 +33,8 @@ def main():
             'vgg16',
             'resnet50', 'resnet101', 'resnet152',
             'se-resnet50', 'se-resnet101', 'se-resnet152',
-            'se-resnext50', 'se-resnext101'))
+            'se-resnext50', 'se-resnext101',
+            'shufflenet_v2_x2.0'))
     parser.add_argument('--pretrained-model', default='imagenet')
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--batchsize', type=int, default=32)
@@ -68,6 +70,11 @@ def main():
         extractor = SEResNeXt50(n_class, args.pretrained_model)
     elif args.model == 'se-resnext101':
         extractor = SEResNeXt101(n_class, args.pretrained_model)
+    elif args.model == 'shufflenet_v2_x2.0':
+        extractor = ShuffleNetV2(1000, args.pretrained_model,
+                                 scale_factor=2.0)
+        chainer.serializers.load_npz('%s/snapshot_model_90.npz' % args.model,
+                                     extractor)
     model = FeaturePredictor(
         extractor, crop_size=224, scale_size=256, crop=args.crop)
 

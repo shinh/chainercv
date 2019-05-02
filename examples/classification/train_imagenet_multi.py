@@ -30,6 +30,8 @@ from chainercv.links import ShuffleNetV2
 
 import chainermn
 
+from chainer import function_hooks
+
 # https://docs.chainer.org/en/stable/tips.html#my-training-process-gets-stuck-when-using-multiprocessiterator
 try:
     import cv2
@@ -103,6 +105,7 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=0.0001)
     parser.add_argument('--out', type=str, default='result')
     parser.add_argument('--epoch', type=int, default=90)
+    parser.add_argument('--base', type=str)
     args = parser.parse_args()
 
     # https://docs.chainer.org/en/stable/chainermn/tutorial/tips_faqs.html#using-multiprocessiterator
@@ -129,6 +132,8 @@ def main():
     extractor = model_cfg['class'](
         n_class=len(label_names), **model_cfg['kwargs'])
     extractor.pick = model_cfg['score_layer_name']
+    if args.base is not None:
+        chainer.serializers.load_npz(args.base, extractor)
     model = Classifier(extractor)
     # Following https://arxiv.org/pdf/1706.02677.pdf,
     # the gamma of the last BN of each resblock is initialized by zeros.
@@ -198,6 +203,7 @@ def main():
             rate = 0.01
         else:
             rate = 0.001
+        rate = 0.0005
         return rate * lr
 
     trainer.extend(warmup_and_exponential_shift)
@@ -223,6 +229,8 @@ def main():
         ), trigger=print_interval)
         trainer.extend(extensions.ProgressBar(update_interval=10))
 
+    #with function_hooks.CUDAProfileHook():
+    #  print('hooked')
     trainer.run()
 
 

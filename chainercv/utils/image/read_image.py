@@ -13,6 +13,7 @@ except ImportError:
 
 
 def _handle_four_channel_image(img, alpha):
+    if alpha is None: alpha = 'ignore'
     if alpha is None:
         raise ValueError(
             'An RGBA image is read by chainercv.utils.read_image, '
