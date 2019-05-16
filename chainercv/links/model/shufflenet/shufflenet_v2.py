@@ -105,8 +105,8 @@ class ShuffleNetV2(PickableSequentialChain):
             0.33: (32, 64, 128, 512),
             0.5: (48, 96, 192, 1024),
             1.0: (116, 232, 464, 1024),
-            1.5: (176, 352, 704, 1024),
-            2.0: (244, 488, 976, 2048),
+            1.5: (176, 352, 704, 1553),
+            2.0: (244, 488, 976, 2153),
         }
         assert scale_factor in out_channel_map, \
             'Unknown scale_factor: %s' % scale_factor
