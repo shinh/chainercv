@@ -19,6 +19,15 @@ _imagenet_mean = np.array(
     dtype=np.float32)[:, np.newaxis, np.newaxis]
 
 
+def channel_shuffle(x):
+    batch, channels, height, width = x.shape
+    channels_per_group = channels // 2
+    x = F.reshape(x, shape=(batch, 2, channels_per_group, height, width))
+    x = F.swapaxes(x, axis1=1, axis2=2)
+    x = F.reshape(x, shape=(batch, channels, height, width))
+    return x
+
+
 class BasicUnit(chainer.Chain):
 
     def __init__(self, channels, initialW=None):
@@ -40,6 +49,7 @@ class BasicUnit(chainer.Chain):
         h = self.conv2(h)
         h = self.conv3(h)
         h = F.concat((l, h), axis=1)
+        h = channel_shuffle(h)
         return h
 
 
@@ -55,7 +65,7 @@ class DownSampleUnit(chainer.Chain):
                                         stride=2, pad=1, groups=in_channels,
                                         activ=None,
                                         initialW=initialW, nobias=True)
-            self.lconv2 = Conv2DBNActiv(in_channels, ch, 1,
+            self.lconv2 = Conv2DBNActiv(in_channels, in_channels, 1,
                                         initialW=initialW, nobias=True)
 
             self.rconv1 = Conv2DBNActiv(in_channels, ch, 1,
@@ -63,7 +73,7 @@ class DownSampleUnit(chainer.Chain):
             self.rconv2 = Conv2DBNActiv(ch, ch, 3,
                                         stride=2, pad=1, groups=ch, activ=None,
                                         initialW=initialW, nobias=True)
-            self.rconv3 = Conv2DBNActiv(ch, ch, 1,
+            self.rconv3 = Conv2DBNActiv(ch, out_channels - in_channels, 1,
                                         initialW=initialW, nobias=True)
 
     def forward(self, x):
@@ -74,6 +84,7 @@ class DownSampleUnit(chainer.Chain):
         r = self.rconv2(r)
         r = self.rconv3(r)
         h = F.concat((l, r), axis=1)
+        h = channel_shuffle(h)
         return h
 
 
@@ -112,9 +123,16 @@ class ShuffleNetV2(PickableSequentialChain):
             'Unknown scale_factor: %s' % scale_factor
         out_channels = out_channel_map[scale_factor]
 
-        self.mean = _imagenet_mean
+        param, path = utils.prepare_pretrained_model(
+            {'n_class': n_class, 'mean': mean},
+            pretrained_model, {},
+            {'n_class': 1000, 'mean': _imagenet_mean})
+        self.mean = param['mean']
 
-        initialW = chainer.initializers.HeNormal()
+        if pretrained_model is None:
+            initialW = chainer.initializers.HeNormal()
+        else:
+            initialW = chainer.initializers.constant.Zero()
         kwargs = {'initialW': initialW}
 
         with self.init_scope():
@@ -129,6 +147,9 @@ class ShuffleNetV2(PickableSequentialChain):
             self.pool5 = lambda x: F.average(x, axis=(2, 3))
             self.fc6 = L.Linear(out_channels[3], n_class)
             self.prob = F.softmax
+
+        if path:
+            chainer.serializers.load_npz(path, self)
 
 
 def main():
