@@ -111,7 +111,10 @@ class FeaturePredictor(chainer.Chain):
         elif self.crop == 'center':
             imgs = center_crop(img, self.crop_size)[np.newaxis]
 
-        imgs -= self.mean[np.newaxis]
+        if hasattr(self.extractor, 'preproc'):
+            imgs = self.extractor.preproc(imgs)
+        else:
+            imgs -= self.mean[np.newaxis]
 
         return imgs
 

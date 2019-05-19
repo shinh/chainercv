@@ -87,6 +87,11 @@ def main():
     model = FeaturePredictor(
         extractor, crop_size=224, scale_size=256, crop=args.crop)
 
+    #import onnx_chainer
+    #x = np.random.rand(1,3,224,224).astype(np.float32)
+    #onnx_chainer.export_testcase(extractor, [x], 'sf')
+    #raise
+
     if args.gpu >= 0:
         chainer.cuda.get_device(args.gpu).use()
         model.to_gpu()

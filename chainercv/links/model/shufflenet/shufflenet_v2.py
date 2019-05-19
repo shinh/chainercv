@@ -11,6 +11,15 @@ from chainercv.links import PickableSequentialChain
 from chainercv import utils
 
 
+
+mean_rgb = np.array(
+    (0.485, 0.456, 0.406),
+    dtype=np.float32)[:, np.newaxis, np.newaxis]
+std_rgb = np.array(
+    (0.229, 0.224, 0.225),
+    dtype=np.float32)[:, np.newaxis, np.newaxis]
+
+
 # RGB order
 # This is channel wise mean of mean image distributed at
 # https://github.com/KaimingHe/deep-residual-networks
@@ -150,6 +159,12 @@ class ShuffleNetV2(PickableSequentialChain):
 
         if path:
             chainer.serializers.load_npz(path, self)
+
+    def preproc(self, img):
+        img /= 255.0
+        img -= mean_rgb
+        img /= std_rgb
+        return img
 
 
 def main():
